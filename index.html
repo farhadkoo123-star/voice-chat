@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>گفتگوی صوتی آنلاین</title>
+  
+  <!-- کتابخانه استاندارد گفتگوی زنده -->
+  <script src="https://meet.jit.si/external_api.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b1329;
+      --card-bg: #1c2541;
+      --primary: #3a86ff;
+      --primary-hover: #2667d4;
+      --text: #ffffff;
+      --text-dim: #94a3b8;
+      --border: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, 'Segoe UI', Tahoma, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* صفحه ورود اولیه */
+    #join-screen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 30px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+
+    .card h1 {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+      color: #60a5fa;
+    }
+
+    .card p {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      margin-bottom: 24px;
+    }
+
+    .input-group {
+      text-align: right;
+      margin-bottom: 16px;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+      color: #e2e8f0;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      background: #0b1329;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: #ffffff;
+      font-size: 1rem;
+      outline: none;
+      transition: 0.2s;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+    }
+
+    button.btn-main {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.05rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+      margin-top: 10px;
+    }
+
+    button.btn-main:hover {
+      background: var(--primary-hover);
+    }
+
+    /* محیط لایو صوتی */
+    #room-screen {
+      display: none;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .room-bar {
+      height: 60px;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+    }
+
+    .room-bar strong {
+      color: #60a5fa;
+      font-size: 1rem;
+    }
+
+    .btn-leave {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    #meet-frame {
+      flex: 1;
+      width: 100%;
+      height: calc(100vh - 60px);
+      background: #0b1329;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- صفحه انتخاب نام و اتاق -->
+  <div id="join-screen">
+    <div class="card">
+      <h1>🎙️ گفتگوی صوتی آنلاین</h1>
+      <p>شبیه به بخش لایو صوتی برنامه شاد</p>
+
+      <div class="input-group">
+        <label>نام و نام خانوادگی:</label>
+        <input type="text" id="display-name" placeholder="مثال: علی رضایی" />
+      </div>
+
+      <div class="input-group">
+        <label>نام یا کد اتاق:</label>
+        <input type="text" id="room-name" placeholder="مثال: kelass101" />
+      </div>
+
+      <button class="btn-main" onclick="startAudioRoom()">ورود به گفتگوی صوتی</button>
+    </div>
+  </div>
+
+  <!-- محیط جلسه صوتی -->
+  <div id="room-screen">
+    <div class="room-bar">
+      <div>اتاق: <strong id="lbl-room-name"></strong></div>
+      <button class="btn-leave" onclick="leaveAudioRoom()">خروج از جلسه</button>
+    </div>
+    <div id="meet-frame"></div>
+  </div>
+
+  <script>
+    let api = null;
+
+    function startAudioRoom() {
+      const name = document.getElementById('display-name').value.trim();
+      let room = document.getElementById('room-name').value.trim();
+
+      if (!name) {
+        alert('لطفاً نام خود را بنویسید.');
+        return;
+      }
+      if (!room) {
+        alert('لطفاً یک نام یا کد برای اتاق وارد کنید.');
+        return;
+      }
+
+      // یک پیشوند اختصاصی اضافه می‌کنیم تا با اتاق‌های دیگران در جهان تداخل پیدا نکند
+      const safeRoomName = "ShadVoice_" + encodeURIComponent(room.replace(/\s+/g, '_'));
+
+      document.getElementById('join-screen').style.display = 'none';
+      document.getElementById('room-screen').style.display = 'flex';
+      document.getElementById('lbl-room-name').innerText = room;
+
+      const domain = 'meet.jit.si';
+      const options = {
+        roomName: safeRoomName,
+        parentNode: document.querySelector('#meet-frame'),
+        userInfo: {
+          displayName: name
+        },
+        configOverwrite: {
+          startWithAudioMuted: false,   // میکروفون آماده
+          startWithVideoMuted: true,    // دوربین کلاً خاموش باشد (فقط صوتی مثل شاد)
+          disableDeepLinking: true,     // بدون نیاز به نصب هیچ برنامه‌ای
+          prejoinPageEnabled: false,    // بدون صفحه اضافه، ورود مستقیم
+          enableWelcomePage: false,
+          enableClosePage: false
+        },
+        interfaceConfigOverwrite: {
+          TOOLBAR_BUTTONS: [
+            'microphone',  // خاموش/روشن کردن صدا
+            'raisehand',   // دست بلند کردن برای اجازه صحبت
+            'chat',        // چت متنی
+            'participants-pane', // لیست افراد حاضر
+            'tileview'
+          ],
+          SHOW_JITSI_WATERMARK: false,
+          SHOW_WATERMARK_FOR_GUESTS: false,
+          DEFAULT_REMOTE_DISPLAY_NAME: 'کاربر مهمان'
+        }
+      };
+
+      // راه‌اندازی موتور صوتی
+      api = new JitsiMeetExternalAPI(domain, options);
+
+      // وقتی کاربر دکمه خروج داخلی را زد
+      api.addEventListeners({
+        readyToClose: function () {
+          leaveAudioRoom();
+        }
+      });
+    }
+
+    function leaveAudioRoom() {
+      if (api) {
+        api.dispose();
+        api = null;
+      }
+      document.getElementById('room-screen').style.display = 'none';
+      document.getElementById('join-screen').style.display = 'flex';
+    }
+  </script>
+</body>
+</html>
