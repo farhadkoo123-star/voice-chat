@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>گفتگوی صوتی آنلاین</title>
-  <script src="https://meet.jit.si/external_api.js"></script>
+  <!-- کتابخانه استاندارد سرور بدون تحریم و بدون نیاز به لاگین -->
+  <script src="https://8x8.vc/external_api.js"></script>
 
   <style>
     :root {
@@ -71,13 +72,16 @@
       if (!name) return alert('لطفاً نام خود را بنویسید.');
       if (!room) return alert('لطفاً نام اتاق را وارد کنید.');
 
-      const safeRoomName = "ShadVoice_" + encodeURIComponent(room.replace(/\s+/g, '_'));
+      // سرور آزاد بدون نیاز به ورود/لاگین
+      const safeRoomName = "vchat_" + room.toLowerCase().replace(/[^a-z0-9]/g, '');
 
       document.getElementById('join-screen').style.display = 'none';
       document.getElementById('room-screen').style.display = 'flex';
       document.getElementById('lbl-room-name').innerText = room;
 
-      const domain = 'meet.jit.si';
+      // اتصال به سرور آزاد و پایدار
+      const domain = 'meet.ffmuc.net'; // این سرور آلمانی عمومی و بدون نیاز به لاگین است
+      
       const options = {
         roomName: safeRoomName,
         parentNode: document.querySelector('#meet-frame'),
@@ -87,28 +91,29 @@
           startWithVideoMuted: true,
           disableDeepLinking: true,
           prejoinPageEnabled: false,
-          prejoinConfig: { enabled: false }, // حذف کامل صفحه دوم و ورود مستقیم
-          enableWelcomePage: false,
-          enableClosePage: false
+          enableWelcomePage: false
         },
         interfaceConfigOverwrite: {
           TOOLBAR_BUTTONS: [
             'microphone',
             'raisehand',
             'chat',
-            'participants-pane',
-            'tileview'
+            'participants-pane'
           ],
-          SHOW_JITSI_WATERMARK: false,
-          SHOW_WATERMARK_FOR_GUESTS: false,
-          DEFAULT_REMOTE_DISPLAY_NAME: 'کاربر'
+          SHOW_JITSI_WATERMARK: false
         }
       };
 
-      api = new JitsiMeetExternalAPI(domain, options);
-      api.addEventListeners({
-        readyToClose: function () { leaveAudioRoom(); }
-      });
+      // بارگذاری کلاینت
+      const script = document.createElement('script');
+      script.src = `https://${domain}/external_api.js`;
+      script.onload = () => {
+        api = new JitsiMeetExternalAPI(domain, options);
+        api.addEventListeners({
+          readyToClose: function () { leaveAudioRoom(); }
+        });
+      };
+      document.head.appendChild(script);
     }
 
     function leaveAudioRoom() {
